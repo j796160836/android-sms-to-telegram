@@ -2,8 +2,13 @@ package com.johnny.sms_to_telegram
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -40,11 +45,13 @@ class MainActivity : ComponentActivity() {
 
         when {
             ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS) != PackageManager.PERMISSION_GRANTED -> {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS) != PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED -> {
                 requestPermissionLauncher.launch(
                     arrayOf(
                         Manifest.permission.RECEIVE_SMS,
-                        Manifest.permission.READ_PHONE_NUMBERS
+                        Manifest.permission.READ_PHONE_NUMBERS,
+                        Manifest.permission.READ_PHONE_STATE
                     )
                 )
             }
@@ -79,8 +86,15 @@ fun MainScreen(onNavigateToSettings: () -> Unit) {
     val context = LocalContext.current
     val sharedPref = remember { context.getSharedPreferences("SmsToTelegramPrefs", Context.MODE_PRIVATE) }
     val coroutineScope = rememberCoroutineScope()
-    // TODO: Check Telegram connection status
     val isSmsPermissionGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
+    val isPhoneStatePermissionGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+
+    val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    val isIgnoringBatteryOptimizations = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        powerManager.isIgnoringBatteryOptimizations(context.packageName)
+    } else {
+        true
+    }
 
     Column(
         modifier = Modifier
@@ -91,6 +105,9 @@ fun MainScreen(onNavigateToSettings: () -> Unit) {
     ) {
         Text("Telegram Connection: Connected") // Placeholder
         Text("SMS Permission: ${if (isSmsPermissionGranted) "Granted" else "Denied"}")
+        Text("Phone State Permission: ${if (isPhoneStatePermissionGranted) "Granted" else "Denied"}")
+        Text("Battery Optimization: ${if (isIgnoringBatteryOptimizations) "Ignored" else "Active"}")
+        
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = onNavigateToSettings) {
             Text("Change Telegram Token")
@@ -112,6 +129,19 @@ fun MainScreen(onNavigateToSettings: () -> Unit) {
             }
         }) {
             Text("Test Message")
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        if (!isIgnoringBatteryOptimizations) {
+            Button(onClick = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                    context.startActivity(intent)
+                }
+            }) {
+                Text("Disable Battery Optimization")
+            }
         }
     }
 }
