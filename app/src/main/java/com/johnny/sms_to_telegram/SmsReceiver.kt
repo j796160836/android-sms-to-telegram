@@ -32,7 +32,11 @@ class SmsReceiver : BroadcastReceiver() {
                     "N/A"
                 }
 
-                val fullMessage = "From: $sender\nTo: $devicePhoneNumber\nMessage: $messageBody"
+                val fullMessage = "📱 <b>Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}</b>\n" +
+                        "━━━━━━━━━━━━━━━\n" +
+                        "<b>From:</b> <code>$sender</code>\n" +
+                        "<b>To:</b> <code>$devicePhoneNumber</code>\n" +
+                        "<b>Message:</b>\n$messageBody"
 
                 // Get Bot Token and Chat ID from SharedPreferences
                 val sharedPref = context.getSharedPreferences("SmsToTelegramPrefs", Context.MODE_PRIVATE)
@@ -44,23 +48,12 @@ class SmsReceiver : BroadcastReceiver() {
                     return
                 }
 
-                sendToTelegram(botToken, chatId, fullMessage)
-            }
-        }
-    }
-
-    private fun sendToTelegram(botToken: String, chatId: String, message: String) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val encodedMessage = URLEncoder.encode(message, "UTF-8")
-                val url = URL("https://api.telegram.org/bot$botToken/sendMessage?chat_id=$chatId&text=$encodedMessage")
-                val urlConnection = url.openConnection() as HttpURLConnection
-                urlConnection.requestMethod = "GET"
-                val responseCode = urlConnection.responseCode
-                Log.d("SmsReceiver", "Telegram response code: $responseCode")
-                urlConnection.disconnect()
-            } catch (e: Exception) {
-                Log.e("SmsReceiver", "Error sending to Telegram", e)
+                CoroutineScope(Dispatchers.IO).launch {
+                    val result = TelegramApi.sendMessage(botToken, chatId, fullMessage)
+                    result.onFailure { e ->
+                        Log.e("SmsReceiver", "Error sending to Telegram", e)
+                    }
+                }
             }
         }
     }

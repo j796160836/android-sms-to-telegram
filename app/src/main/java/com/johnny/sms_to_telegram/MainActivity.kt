@@ -3,8 +3,10 @@ package com.johnny.sms_to_telegram
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
@@ -43,18 +45,32 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        startBatteryService()
+
         when {
             ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED ||
             ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_NUMBERS) != PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED -> {
-                requestPermissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.RECEIVE_SMS,
-                        Manifest.permission.READ_PHONE_NUMBERS,
-                        Manifest.permission.READ_PHONE_STATE
-                    )
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED ||
+            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) -> {
+                val permissions = mutableListOf(
+                    Manifest.permission.RECEIVE_SMS,
+                    Manifest.permission.READ_PHONE_NUMBERS,
+                    Manifest.permission.READ_PHONE_STATE
                 )
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+                }
+                requestPermissionLauncher.launch(permissions.toTypedArray())
             }
+        }
+    }
+
+    private fun startBatteryService() {
+        val serviceIntent = Intent(this, BatteryService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
         }
     }
 }
@@ -103,7 +119,14 @@ fun MainScreen(onNavigateToSettings: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Telegram Connection: Connected") // Placeholder
+        val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+        Text("Device: $deviceName", style = MaterialTheme.typography.headlineSmall)
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        val isConfigured = sharedPref.getString("BOT_TOKEN", "").isNullOrBlank().not() && 
+                         sharedPref.getString("CHAT_ID", "").isNullOrBlank().not()
+        
+        Text("Status: ${if (isConfigured) "✅ Configured" else "❌ Not Configured"}")
         Text("SMS Permission: ${if (isSmsPermissionGranted) "Granted" else "Denied"}")
         Text("Phone State Permission: ${if (isPhoneStatePermissionGranted) "Granted" else "Denied"}")
         Text("Battery Optimization: ${if (isIgnoringBatteryOptimizations) "Ignored" else "Active"}")
@@ -117,18 +140,34 @@ fun MainScreen(onNavigateToSettings: () -> Unit) {
             coroutineScope.launch {
                 val botToken = sharedPref.getString("BOT_TOKEN", "") ?: ""
                 val chatId = sharedPref.getString("CHAT_ID", "") ?: ""
-                val result = TelegramApi.sendMessage(botToken, chatId, "This is a test message from SmsToTelegram.")
+                
+                val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
+                    context.registerReceiver(null, ifilter)
+                }
+                val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+                
+                val statusReport = """
+                    🚀 <b>Status Report</b>
+                    ━━━━━━━━━━━━━━━
+                    📱 <b>Device:</b> $deviceName
+                    🔋 <b>Battery:</b> $level%
+                    📶 <b>Service:</b> Running
+                    ✅ <b>Telegram:</b> Connected
+                """.trimIndent()
+                
+                val result = TelegramApi.sendMessage(botToken, chatId, statusReport)
                 result.fold(
                     onSuccess = {
-                        launch { Toast.makeText(context, "Test message sent successfully", Toast.LENGTH_SHORT).show() }
+                        launch { Toast.makeText(context, "Status report sent successfully", Toast.LENGTH_SHORT).show() }
                     },
                     onFailure = {
-                        launch { Toast.makeText(context, "Failed to send test message: ${it.message}", Toast.LENGTH_LONG).show() }
+                        launch { Toast.makeText(context, "Failed to send report: ${it.message}", Toast.LENGTH_LONG).show() }
                     }
                 )
             }
         }) {
-            Text("Test Message")
+            Text("Send Status Report")
         }
         Spacer(modifier = Modifier.height(8.dp))
         if (!isIgnoringBatteryOptimizations) {

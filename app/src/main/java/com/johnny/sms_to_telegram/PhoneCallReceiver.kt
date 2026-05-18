@@ -21,8 +21,12 @@ class PhoneCallReceiver : BroadcastReceiver() {
                     val chatId = sharedPref.getString("CHAT_ID", "") ?: ""
 
                     if (botToken.isNotBlank() && chatId.isNotBlank()) {
+                        val deviceName = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
                         CoroutineScope(Dispatchers.IO).launch {
-                            TelegramApi.sendMessage(botToken, chatId, "Incoming call from: $incomingNumber")
+                            val result = TelegramApi.sendMessage(botToken, chatId, "📞 <b>[$deviceName]</b>\nIncoming call from: <code>$incomingNumber</code>")
+                            result.onFailure { e ->
+                                android.util.Log.e("PhoneCallReceiver", "Error sending to Telegram", e)
+                            }
                         }
                     }
                 }
