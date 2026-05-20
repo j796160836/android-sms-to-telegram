@@ -24,7 +24,8 @@ class SmsReceiver : BroadcastReceiver() {
                 val sender = smsMessage.originatingAddress
 
                 // Get the phone number of the device
-                val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+                val telephonyManager =
+                    context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
                 val devicePhoneNumber = try {
                     // This requires the READ_PHONE_NUMBERS permission
                     telephonyManager.line1Number
@@ -32,14 +33,17 @@ class SmsReceiver : BroadcastReceiver() {
                     "N/A"
                 }
 
-                val fullMessage = "📱 <b>Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}</b>\n" +
-                        "━━━━━━━━━━━━━━━\n" +
-                        "<b>From:</b> <code>$sender</code>\n" +
-                        "<b>To:</b> <code>$devicePhoneNumber</code>\n" +
-                        "<b>Message:</b>\n$messageBody"
+                val fullMessage =
+                    "<b>From:</b> <code>$sender</code>\n" +
+                            "<b>To:</b> <code>$devicePhoneNumber</code>\n" +
+                            "<b>Message:</b>\n$messageBody" +
+                            "━━━━━━━━━━━━━━━\n" +
+                            "📱 <b>Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}</b>\n"
+
 
                 // Get Bot Token and Chat ID from SharedPreferences
-                val sharedPref = context.getSharedPreferences("SmsToTelegramPrefs", Context.MODE_PRIVATE)
+                val sharedPref =
+                    context.getSharedPreferences("SmsToTelegramPrefs", Context.MODE_PRIVATE)
                 val botToken = sharedPref.getString("BOT_TOKEN", "")
                 val chatId = sharedPref.getString("CHAT_ID", "")
 
