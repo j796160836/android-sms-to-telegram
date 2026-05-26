@@ -36,12 +36,25 @@ class BatteryReceiver : BroadcastReceiver() {
             Intent.ACTION_BATTERY_LOW -> "⚠️ <b>[$deviceName]</b>\nLow Battery Warning! Level: <b>$batteryPct%</b>\nPlease charge your device."
             Intent.ACTION_BATTERY_OKAY -> "✅ <b>[$deviceName]</b>\nBattery OK. Level: <b>$batteryPct%</b>\nDevice is sufficiently charged."
             Intent.ACTION_POWER_CONNECTED -> "🔌 <b>[$deviceName]</b>\nPower Connected. Charging started (Level: <b>$batteryPct%</b>)."
-            Intent.ACTION_POWER_DISCONNECTED -> "🔋 <b>[$deviceName]</b>\nPower Disconnected. Charging stopped (Level: <b>$batteryPct%</b>)."
+            Intent.ACTION_POWER_DISCONNECTED -> {
+                // Reset so a future full charge notifies again.
+                sharedPref.edit().putBoolean("BATTERY_FULL_NOTIFIED", false).apply()
+                "🔋 <b>[$deviceName]</b>\nPower Disconnected. Charging stopped (Level: <b>$batteryPct%</b>)."
+            }
             Intent.ACTION_BATTERY_CHANGED -> {
                 val status = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-                if (status == BatteryManager.BATTERY_STATUS_FULL && batteryPct == 100) {
+                val isFull = status == BatteryManager.BATTERY_STATUS_FULL && batteryPct == 100
+                if (isFull) {
+                    // BATTERY_CHANGED fires repeatedly while plugged in at full charge;
+                    // only notify on the first transition into the full state.
+                    if (sharedPref.getBoolean("BATTERY_FULL_NOTIFIED", false)) {
+                        return
+                    }
+                    sharedPref.edit().putBoolean("BATTERY_FULL_NOTIFIED", true).apply()
                     "⚡ <b>[$deviceName]</b>\nBattery Full! <b>100%</b>\nYou can unplug the charger."
                 } else {
+                    // Left the full state; allow the next full charge to notify.
+                    sharedPref.edit().putBoolean("BATTERY_FULL_NOTIFIED", false).apply()
                     return
                 }
             }
