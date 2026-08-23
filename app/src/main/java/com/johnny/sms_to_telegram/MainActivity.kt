@@ -1,6 +1,7 @@
 package com.johnny.sms_to_telegram
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -10,6 +11,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.Process
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -126,10 +128,12 @@ fun MainScreen(onNavigateToSettings: () -> Unit) {
         val isConfigured = sharedPref.getString("BOT_TOKEN", "").isNullOrBlank().not() && 
                          sharedPref.getString("CHAT_ID", "").isNullOrBlank().not()
         
-        Text("Status: ${if (isConfigured) "✅ Configured" else "❌ Not Configured"}")
-        Text("SMS Permission: ${if (isSmsPermissionGranted) "Granted" else "Denied"}")
-        Text("Phone State Permission: ${if (isPhoneStatePermissionGranted) "Granted" else "Denied"}")
-        Text("Battery Optimization: ${if (isIgnoringBatteryOptimizations) "Ignored" else "Active"}")
+        Column(horizontalAlignment = Alignment.Start) {
+            Text("Status: ${if (isConfigured) "✅ Configured" else "❌ Not Configured"}")
+            Text("SMS Permission: ${if (isSmsPermissionGranted) "✅ Granted" else "❌ Denied"}")
+            Text("Phone State Permission: ${if (isPhoneStatePermissionGranted) "✅ Granted" else "❌ Denied"}")
+            Text("Battery Optimization: ${if (isIgnoringBatteryOptimizations) "✅ Ignored" else "❌ Active"}")
+        }
         
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = onNavigateToSettings) {
@@ -181,6 +185,17 @@ fun MainScreen(onNavigateToSettings: () -> Unit) {
             }) {
                 Text("Disable Battery Optimization")
             }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        Button(
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+            onClick = {
+                context.stopService(Intent(context, BatteryService::class.java))
+                (context as? Activity)?.finishAffinity()
+                Process.killProcess(Process.myPid())
+            }
+        ) {
+            Text("Close App")
         }
     }
 }
