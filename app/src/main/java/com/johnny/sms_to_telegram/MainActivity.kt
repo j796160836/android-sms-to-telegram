@@ -134,8 +134,25 @@ fun MainScreen(onNavigateToSettings: () -> Unit) {
             Text("Phone State Permission: ${if (isPhoneStatePermissionGranted) "✅ Granted" else "❌ Denied"}")
             Text("Battery Optimization: ${if (isIgnoringBatteryOptimizations) "✅ Ignored" else "❌ Active"}")
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
+
+        if (isPhoneStatePermissionGranted) {
+            val simLabels = remember { SimInfoUtils.getActiveSimLabels(context) }
+            Column(horizontalAlignment = Alignment.Start) {
+                if (simLabels.isEmpty()) {
+                    Text("No SIM detected")
+                } else {
+                    simLabels.forEachIndexed { index, label ->
+                        Text(label.toTwoLines())
+                        if (index != simLabels.lastIndex) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
         Button(onClick = onNavigateToSettings) {
             Text("Change Telegram Token")
         }

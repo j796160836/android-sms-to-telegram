@@ -78,16 +78,7 @@ class SmsReceiver : BroadcastReceiver() {
                     context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
                 val info = subscriptionManager.getActiveSubscriptionInfo(subscriptionId)
                 if (info != null) {
-                    val slot = info.simSlotIndex + 1
-                    val carrier = info.carrierName?.toString()?.takeIf { it.isNotBlank() }
-                        ?: info.displayName?.toString()?.takeIf { it.isNotBlank() }
-                        ?: "SIM $slot"
-                    val number = try {
-                        info.number?.takeIf { it.isNotBlank() }
-                    } catch (e: SecurityException) {
-                        null
-                    }
-                    return if (number != null) "SIM $slot $carrier ($number)" else "SIM $slot $carrier"
+                    return SimInfoUtils.formatLabel(info).toSingleLine()
                 }
             } catch (e: SecurityException) {
                 // Fall through to the default-SIM fallback below.
